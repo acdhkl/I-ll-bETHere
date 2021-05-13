@@ -3,47 +3,78 @@ pragma solidity ^0.5.6;
 
 contract RSVP {
 
-  address payable public owner;
-  uint public eventIdTracker;
+    address payable public owner;
 
-  struct Event {
-    string name;
-    string date;
-    uint price;
-    uint capacity;
-  }
+    struct Event {
+        string name;
+        string date;
+        uint256 price;
+        mapping(address => bool) rsvpers;
+        address[] attendees;
+    }
 
-  mapping (uint => Event) events;
-  event EventCreated(string name, string date, uint price, uint capacity);
+    mapping(uint256 => Event) events;
+    uint256 public eventIdTracker;
 
-  constructor() public {
-    owner = msg.sender;
-  }
+    event EventCreated(string name, string date, uint256 price);
+    event UserRSVPed(address user, uint256 eventId);
+    event AttendanceMarked(address attendee, uint256 evt);
 
-  function createEvent(string memory _name, string memory _date, uint _price, uint _capacity) public returns(uint _eventId) {
-    //Refactor and create function modifier called isOwner later
-    require (msg.sender == owner);
+    constructor() public {
+        owner = msg.sender;
+    }
 
-    Event memory newEvent;
-    newEvent.name = _name;
-    newEvent.date = _date;
-    newEvent.price = _price;
-    newEvent.capacity = _capacity;
+    modifier onlyOwner() {
+        require(msg.sender == owner);
+        _;
+    }
 
-  _eventId = eventIdTracker;
-  eventIdTracker++;
-  events[_eventId] = newEvent;
+    function createEvent(
+        string memory _name,
+        string memory _date,
+        uint256 _price
+    ) public onlyOwner returns (uint256 _eventId) {
+        Event memory newEvent;
+        newEvent.name = _name;
+        newEvent.date = _date;
+        newEvent.price = _price;
+        _eventId = eventIdTracker;
+        eventIdTracker++;
+        events[_eventId] = newEvent;
 
-  emit EventCreated(_name,_date,_price,_capacity);
-  }
+        emit EventCreated(_name, _date, _price);
+    }
 
-  function getEventDetails (uint _eventId) public view returns(string memory _name, string memory _date, uint _price, uint _capacity) {
-    Event memory foundEvent = events[_eventId];
-    _name = foundEvent.name;
-    _date = foundEvent.date;
-    _price = foundEvent.price;
-    _capacity = foundEvent.capacity;
-  }
+    function getEventDetails(uint256 _eventId)
+        public
+        view
+        returns (
+            string memory _name,
+            string memory _date,
+            uint256 _price
+        )
+    {
+        _name = events[_eventId].name;
+        _date = events[_eventId].date;
+        _price = events[_eventId].price;
+    }
 
+    function rsvpForEvent(uint256 _eventId) public payable {
+      
+      if (msg.value > events[_eventId].price){
+        msg.sender.transfer(events[_eventId].price);
+      }
+        events[_eventId].rsvpers[msg.sender] = true;
 
+        emit UserRSVPed(msg.sender, _eventId);
+    }
+
+    function markAttended(uint256 _eventId, address _attendee)
+        public
+        onlyOwner
+    {
+        if (events[_eventId].rsvpers[_attendee]) {
+            events[_eventId].attendees.push(_attendee);
+        } 
+    }
 }
